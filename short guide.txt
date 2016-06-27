@@ -1,0 +1,3 @@
+1. run sim volume and choose the slice, multiple slices possible
+2. vispy_test needs the variable matrix vol from sim_volume
+3. fertig
