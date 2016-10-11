@@ -10,8 +10,64 @@ import scipy.special as sps
 from mpl_toolkits.mplot3d import Axes3D
 from scipy import ndimage
 
+from scipy.ndimage.filters import gaussian_filter
+from skimage import measure
 
 ################### Functions #################
+
+def check_for_particles_in_crack(labeled_matrix, rect_xs, rect_ys):
+    particle_content = []
+
+    particles_already_counted = []    
+    
+    for i in rect_xs:
+        for j in rect_ys:
+            if labeled_matrix[i,j] != 0:
+                if labeled_matrix[i,j] not in particles_already_counted:
+                    particle_label = labeled_matrix[i,j]
+                    particle_amount = np.where(labeled_matrix == particle_label)
+                    particle_content.append(particle_amount[0].size)
+                    
+                    particles_already_counted.append(particle_label)
+                    
+    return particle_content
+    
+
+def calc_rectangle_coords(center_x, center_y, edge_a, edge_b):
+    rect_xs = np.arange(center_x-int(edge_a/2),center_x + int(edge_a/2))
+    rect_ys = np.arange(center_y-int(edge_b/2),center_y + int(edge_b/2))
+    
+    #rect = np.meshgrid(rect_xs, rect_ys)    
+    
+    #rect_rot = ndimage.interpolation.rotate(rect, 10,mode='constant',cval=100)
+
+    
+    return rect_xs, rect_ys
+    
+def draw_rectangle(matrix_area, rect_xs, rect_ys, crack_color):
+    
+    for i in rect_xs:
+        for j in rect_ys:
+            matrix_area[i,j] = crack_color
+    return matrix_area
+            
+
+def calc_indent_coords(d1,d2,indent_shifter, center_indent_x, center_indent_y):
+    vickers_xs = np.arange(center_indent_x-int(d1/2),center_indent_x + int(d1/2))
+    vickers_ys = np.arange(center_indent_y-int(d2/2),center_indent_y + int(d2/2))  + indent_shifter
+    
+    return vickers_xs, vickers_ys
+    
+def vickers_indent(vickers_xs, vickers_ys, matrix_area,successfull_indent_color, indenter_color, particle_color):
+    indent = False
+    for i in vickers_xs:
+        for j in vickers_ys:
+            if matrix_area[i,j] == particle_color:
+                indent  = True
+                matrix_area[i,j] = successfull_indent_color
+            else:
+                matrix_area[i,j] = indenter_color  
+    return indent
 
 def in_sphere(center_x, center_y, center_z, radius, x, y,z):
     square_dist = ((center_x - x) ** 2 + (center_y - y) ** 2 + (center_z - z) ** 2 )
@@ -51,9 +107,9 @@ def correct_boundaries(boundary,tmp):
 ################### Variables #################
 
 # edge lenghts cube
-a = 300
-b = 300
-c = 300
+a = 400
+b = 400
+c = 400
 volume_total = a*b*c
 
 # volume arrays
@@ -62,15 +118,14 @@ b_vol = np.arange(b)
 c_vol = np.arange(c) 
 
 # volume fractions
-volume_fraction_of_particles_total = 0.05
+volume_fraction_of_particles_total = 0.1
 
 #  color settings    
 matrix_color = 0
+particle_containing_color = 1
 particle_color = 3
-successfull_indent_color = 1
 indenter_color = 4
-corner_check_area_color = 2
-corner_particle_color = 5
+crack_color = 6
 
 ################### DATA #####################
 diameters = np.array([  1.00000000e-02,   1.10000000e-02,   1.30000000e-02,
@@ -178,23 +233,63 @@ for i,radius in enumerate(radii_sorted):
             if overlap == False:
                 matrix_vol[xs_corr,ys_corr,zs_corr] = particle_color
                 flag = 1
+                
             
 ############## SLice ##############################
             
 # get random slice
 matrix_area = matrix_vol[:,b/2,:]
 
+
+matrix_area_binary_opened = ndimage.binary_opening(matrix_area).astype(matrix_area.dtype)
+
+########### Indent #################################
+
+
+
+center_indent_x = int(a/2)
+center_indent_y = int(b/2)    
+number_of_indents = 1
+
+indent_shifter = 0    
+
+d1 = 50
+d2 = 50
+
+crack_width = 3
+crack_length = 300
+rect_xs, rect_ys = calc_rectangle_coords(center_indent_x, center_indent_y,crack_width,crack_length)
+
+labeled_matrix = measure.label(matrix_area_binary_opened)
+
+particle_content = []
+particle_content = check_for_particles_in_crack(labeled_matrix, rect_xs, rect_ys)
+
+#for i in range(number_of_indents):
+#    
+#    vickers_xs, vickers_ys = calc_indent_coords(d1,d2,indent_shifter, center_indent_x, center_indent_y)
+#    
+#    indent = vickers_indent(vickers_xs, vickers_ys, matrix_area_binary_opened,successfull_indent_color, indenter_color, particle_color)
+
+matrix_area_binary_opened = draw_rectangle(matrix_area_binary_opened, rect_xs, rect_ys, crack_color)
+
+###########  Calc #################################
+
+# assumption fluid particles
+
+solid_particles = np.sum(np.array(particle_content) / (rect_xs.size * rect_ys.size))
+
+
+########### Plot #################################
+
 ##plot the last distribution matrix
 #pl.imshow(matrix_area, cmap='gray')    
 #pl.colorbar()
 
-matrix_area_binary_opened = ndimage.binary_opening(matrix_area).astype(matrix_area.dtype)
 
 #plot the last distribution matrix
 pl.imshow(matrix_area_binary_opened, cmap='gray')    
 pl.colorbar()
-
-
 
 ################ Test ##########################
 
