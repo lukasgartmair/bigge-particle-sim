@@ -5,6 +5,7 @@ Created on Mon Jul 25 20:36:41 2016
 @author: Lukas Gartmair
 """
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as pl
 import scipy.special as sps
 from mpl_toolkits.mplot3d import Axes3D
@@ -13,6 +14,7 @@ from scipy import ndimage
 from scipy.ndimage.filters import gaussian_filter
 from skimage import measure
 
+import matplotlib.patches as patches
 ################### Functions #################
 
 def check_for_particles_in_crack(labeled_matrix, rect_xs, rect_ys):
@@ -33,14 +35,15 @@ def check_for_particles_in_crack(labeled_matrix, rect_xs, rect_ys):
     return particle_content
     
 
-def calc_rectangle_coords(center_x, center_y, edge_a, edge_b):
-    rect_xs = np.arange(center_x-int(edge_a/2),center_x + int(edge_a/2))
-    rect_ys = np.arange(center_y-int(edge_b/2),center_y + int(edge_b/2))
+def calc_rectangle_coords(center_x, center_y, edge_a, edge_b, angle=0):
+    if angle == 0:
+        rect_xs = np.arange(center_x-int(edge_a/2),center_x + int(edge_a/2))
+        rect_ys = np.arange(center_y-int(edge_b/2),center_y + int(edge_b/2))
     
-    #rect = np.meshgrid(rect_xs, rect_ys)    
-    
-    #rect_rot = ndimage.interpolation.rotate(rect, 10,mode='constant',cval=100)
-
+    if angle == 90:
+        rect_xs = np.arange(center_x-int(edge_b/2),center_x + int(edge_b/2))
+        rect_ys = np.arange(center_y-int(edge_a/2),center_y + int(edge_a/2))
+        
     
     return rect_xs, rect_ys
     
@@ -107,9 +110,9 @@ def correct_boundaries(boundary,tmp):
 ################### Variables #################
 
 # edge lenghts cube
-a = 400
-b = 400
-c = 400
+a = 200
+b = 200
+c = 200
 volume_total = a*b*c
 
 # volume arrays
@@ -257,27 +260,30 @@ d1 = 50
 d2 = 50
 
 crack_width = 3
-crack_length = 300
-rect_xs, rect_ys = calc_rectangle_coords(center_indent_x, center_indent_y,crack_width,crack_length)
+crack_length = 150
 
 labeled_matrix = measure.label(matrix_area_binary_opened)
 
-particle_content = []
-particle_content = check_for_particles_in_crack(labeled_matrix, rect_xs, rect_ys)
+#1st rectangle
+rect_xs1, rect_ys1 = calc_rectangle_coords(center_indent_x, center_indent_y,crack_width,crack_length, angle=0)
 
-#for i in range(number_of_indents):
-#    
-#    vickers_xs, vickers_ys = calc_indent_coords(d1,d2,indent_shifter, center_indent_x, center_indent_y)
-#    
-#    indent = vickers_indent(vickers_xs, vickers_ys, matrix_area_binary_opened,successfull_indent_color, indenter_color, particle_color)
+particle_content1 = []
+particle_content1 = check_for_particles_in_crack(labeled_matrix, rect_xs1, rect_ys1)
 
-matrix_area_binary_opened = draw_rectangle(matrix_area_binary_opened, rect_xs, rect_ys, crack_color)
+matrix_area_binary_opened = draw_rectangle(matrix_area_binary_opened, rect_xs1, rect_ys1, crack_color)
 
-###########  Calc #################################
+solid_particles1 = np.sum(np.array(particle_content1) / (rect_xs1.size * rect_ys1.size))
 
-# assumption fluid particles
+#2nd rectangle
 
-solid_particles = np.sum(np.array(particle_content) / (rect_xs.size * rect_ys.size))
+rect_xs2, rect_ys2 = calc_rectangle_coords(center_indent_x, center_indent_y,crack_width,crack_length, angle=90)
+
+particle_content2 = []
+particle_content2 = check_for_particles_in_crack(labeled_matrix, rect_xs2, rect_ys2)
+
+matrix_area_binary_opened = draw_rectangle(matrix_area_binary_opened, rect_xs2, rect_ys2, crack_color)
+
+solid_particles2 = np.sum(np.array(particle_content1) / (rect_xs2.size * rect_ys2.size))
 
 
 ########### Plot #################################
@@ -288,8 +294,14 @@ solid_particles = np.sum(np.array(particle_content) / (rect_xs.size * rect_ys.si
 
 
 #plot the last distribution matrix
-pl.imshow(matrix_area_binary_opened, cmap='gray')    
-pl.colorbar()
+fig = pl.figure()
+ax = fig.add_subplot(111)
+ax.imshow(matrix_area_binary_opened, cmap='gray')   
+indent = patches.Rectangle((a/2 , -d2/2),d1,d2, color='white', alpha=0.3, edgecolor='red') 
+transform = matplotlib.transforms.Affine2D().rotate_deg(45) + ax.transData
+indent.set_transform(transform)
+ax.add_patch(indent)
+
 
 ################ Test ##########################
 
