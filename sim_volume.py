@@ -294,7 +294,7 @@ for volume_fraction_of_particles_total in volume_fraction_of_particles_totals:
         
         solid_particles2 = np.array(particle_content2) / (rect_xs2.size * rect_ys2.size)
 
-        summary_crack.append(np.mean(solid_particles1, solid_particles2]))
+        summary_crack.append(np.mean(solid_particles1, solid_particles2))
         
     summary_total.append(summary_crack)
     
