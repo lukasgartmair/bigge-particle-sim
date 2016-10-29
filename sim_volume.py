@@ -122,7 +122,7 @@ c_vol = np.arange(c)
 
 # volume fractions
 #volume_fraction_of_particles_total = 0.1
-volume_fraction_of_particles_totals = [0.05]
+volume_fraction_of_particles_totals = [0.05, 0.1]
 
 
 #  color settings    
@@ -281,7 +281,7 @@ for volume_fraction_of_particles_total in volume_fraction_of_particles_totals:
         
         matrix_area_binary_opened = draw_rectangle(matrix_area_binary_opened, rect_xs1, rect_ys1, crack_color)
         
-        solid_particles1 = np.sum(np.array(particle_content1) / (rect_xs1.size * rect_ys1.size))
+        solid_particles1 = np.array(particle_content1) / (rect_xs1.size * rect_ys1.size)
         
         #2nd rectangle
         
@@ -292,11 +292,9 @@ for volume_fraction_of_particles_total in volume_fraction_of_particles_totals:
         
         matrix_area_binary_opened = draw_rectangle(matrix_area_binary_opened, rect_xs2, rect_ys2, crack_color)
         
-        solid_particles2 = np.sum(np.array(particle_content2) / (rect_xs2.size * rect_ys2.size))
+        solid_particles2 = np.array(particle_content2) / (rect_xs2.size * rect_ys2.size)
 
-
-
-        summary_crack.append(np.mean(np.array([solid_particles1, solid_particles2])))
+        summary_crack.append(np.mean(solid_particles1, solid_particles2]))
         
     summary_total.append(summary_crack)
     
