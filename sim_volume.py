@@ -14,6 +14,11 @@ from scipy import ndimage
 from scipy.ndimage.filters import gaussian_filter
 from skimage import measure
 
+import time
+start_time = time.time()
+
+
+
 import matplotlib.patches as patches
 ################### Functions #################
 
@@ -110,9 +115,9 @@ def correct_boundaries(boundary,tmp):
 ################### Variables #################
 
 # edge lenghts cube
-a = 200
-b = 200
-c = 200
+a = 400
+b = 400
+c = 400
 volume_total = a*b*c
 
 # volume arrays
@@ -122,7 +127,7 @@ c_vol = np.arange(c)
 
 # volume fractions
 #volume_fraction_of_particles_total = 0.1
-volume_fraction_of_particles_totals = [0.05]
+volume_fraction_of_particles_totals = [0.1]
 
 
 #  color settings    
@@ -175,11 +180,14 @@ volume_percents_particles = np.array([ 0.  ,  0.  ,  0.  ,  0.  ,  0.  ,  0.  , 
 
 ##################  Calculations  ###############
 
-radii = diameters / 2
+radii = []
 
 summary_total = []
 
 for volume_fraction_of_particles_total in volume_fraction_of_particles_totals:
+    
+    radii = []
+    radii = diameters / 2
 
     volume_of_particles_total = volume_total*volume_fraction_of_particles_total
     
@@ -245,7 +253,7 @@ for volume_fraction_of_particles_total in volume_fraction_of_particles_totals:
                     
                 
     ############## SLice ##############################
-    number_of_slices = 30
+    number_of_slices = 15
     slices = np.linspace(10,b-10,number_of_slices,dtype=int)             
     
     summary_crack = []
@@ -261,15 +269,12 @@ for volume_fraction_of_particles_total in volume_fraction_of_particles_totals:
         
         center_indent_x = int(a/2)
         center_indent_y = int(b/2)    
-        number_of_indents = 1
-        
-        indent_shifter = 0    
         
         d1 = 50
         d2 = 50
         
         crack_width = 3
-        crack_length = 100
+        crack_length = 300
         
         labeled_matrix = measure.label(matrix_area_binary_opened)
         
@@ -281,7 +286,7 @@ for volume_fraction_of_particles_total in volume_fraction_of_particles_totals:
         
         matrix_area_binary_opened = draw_rectangle(matrix_area_binary_opened, rect_xs1, rect_ys1, crack_color)
         
-        solid_particles1 = np.sum(np.array(particle_content1) / (rect_xs1.size * rect_ys1.size))
+        solid_particles1 = np.sum(np.array(particle_content1)) / (rect_xs1.size * rect_ys1.size)
         
         #2nd rectangle
         
@@ -292,10 +297,11 @@ for volume_fraction_of_particles_total in volume_fraction_of_particles_totals:
         
         matrix_area_binary_opened = draw_rectangle(matrix_area_binary_opened, rect_xs2, rect_ys2, crack_color)
         
-        solid_particles2 = np.sum(np.array(particle_content2) / (rect_xs2.size * rect_ys2.size))
+        solid_particles2 = np.sum(np.array(particle_content2)) / (rect_xs2.size * rect_ys2.size)
 
-
-
+        
+        
+        
         summary_crack.append(np.mean(np.array([solid_particles1, solid_particles2])))
         
     summary_total.append(summary_crack)
@@ -303,16 +309,45 @@ for volume_fraction_of_particles_total in volume_fraction_of_particles_totals:
 
 ########### Plot #################################
 
+#means = []
+#data = []
+#for i in summary_total:
+#    means.append(np.median(np.array(i)))
+#    
+#    data.append(i)
+#
+#pl.scatter(volume_fraction_of_particles_totals, means)
+#
+#pl.figure()
+#pl.boxplot(data, 1, 'gD')
+
+print("--- %s seconds ---" % (time.time() - start_time))
+
+#import csv
+#csvfile = "content_0.3_file1.txt"
+#
+##Assuming res is a flat list
+#with open(csvfile, "w") as output:
+#    writer = csv.writer(output, lineterminator='\n')
+#    for val in summary_crack:
+#        writer.writerow([val])    
+
+##Assuming res is a list of lists
+#with open(csvfile, "w") as output:
+#    writer = csv.writer(output, lineterminator='\n')
+#    writer.writerows(res)
+
+
 ##plot the last distribution matrix
 #pl.imshow(matrix_area, cmap='gray')    
 #pl.colorbar()
 
 
 #plot the last distribution matrix
-#fig = pl.figure()
-#ax = fig.add_subplot(111)
-#ax.imshow(matrix_area_binary_opened, cmap='gray')   
-#indent = patches.Rectangle((a/2 , -d2/2),d1,d2, color='white', alpha=0.3, edgecolor='red') 
+fig = pl.figure()
+ax = fig.add_subplot(111)
+ax.imshow(matrix_area_binary_opened, cmap='gray')   
+indent = patches.Rectangle((a/2 , -d2/2),d1,d2, color='white', alpha=0.3, edgecolor='red') 
 #transform = matplotlib.transforms.Affine2D().rotate_deg(45) + ax.transData
 #indent.set_transform(transform)
 #ax.add_patch(indent)
