@@ -19,13 +19,15 @@ from itertools import cycle
 
 import numpy as np
 
+import vispy
+
 from vispy import app, scene, io
 from vispy.color import get_colormaps, BaseColormap
 from vispy.visuals.transforms import STTransform
 
 # Read volume
 #vol1 = np.load(io.load_data_file('volume/stent.npz'))['arr_0']
-vol1 = matrix_vol
+vol1 = matrix_binary_opened
 
 # Prepare canvas
 canvas = scene.SceneCanvas(keys='interactive', size=(800, 600), show=True)

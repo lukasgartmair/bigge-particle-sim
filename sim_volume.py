@@ -17,12 +17,9 @@ from skimage import measure
 import time
 start_time = time.time()
 
-
-
-import matplotlib.patches as patches
 ################### Functions #################
 
-def check_for_particles_in_crack(labeled_matrix, rect_xs, rect_ys):
+def check_for_particles_in_crack(matrix_area_binary_opened, labeled_matrix, rect_xs, rect_ys):
     particle_content = []
 
     particles_already_counted = []    
@@ -30,6 +27,7 @@ def check_for_particles_in_crack(labeled_matrix, rect_xs, rect_ys):
     for i in rect_xs:
         for j in rect_ys:
             if labeled_matrix[i,j] != 0:
+                
                 if labeled_matrix[i,j] not in particles_already_counted:
                     particle_label = labeled_matrix[i,j]
                     particle_amount = np.where(labeled_matrix == particle_label)
@@ -37,6 +35,9 @@ def check_for_particles_in_crack(labeled_matrix, rect_xs, rect_ys):
                     
                     particles_already_counted.append(particle_label)
                     
+                    particle_coords= np.where(labeled_matrix == particle_label)
+
+                    matrix_area_binary_opened[particle_coords] = 3
     return particle_content
     
 
@@ -48,8 +49,6 @@ def calc_rectangle_coords(center_x, center_y, edge_a, edge_b, angle=0):
     if angle == 90:
         rect_xs = np.arange(center_x-int(edge_b/2),center_x + int(edge_b/2))
         rect_ys = np.arange(center_y-int(edge_a/2),center_y + int(edge_a/2))
-        
-    
     return rect_xs, rect_ys
     
 def draw_rectangle(matrix_area, rect_xs, rect_ys, crack_color):
@@ -57,13 +56,11 @@ def draw_rectangle(matrix_area, rect_xs, rect_ys, crack_color):
     for i in rect_xs:
         for j in rect_ys:
             matrix_area[i,j] = crack_color
-    return matrix_area
-            
+    return matrix_area     
 
 def calc_indent_coords(d1,d2,indent_shifter, center_indent_x, center_indent_y):
     vickers_xs = np.arange(center_indent_x-int(d1/2),center_indent_x + int(d1/2))
     vickers_ys = np.arange(center_indent_y-int(d2/2),center_indent_y + int(d2/2))  + indent_shifter
-    
     return vickers_xs, vickers_ys
     
 def vickers_indent(vickers_xs, vickers_ys, matrix_area,successfull_indent_color, indenter_color, particle_color):
@@ -126,15 +123,11 @@ b_vol = np.arange(b)
 c_vol = np.arange(c) 
 
 # volume fractions
-#volume_fraction_of_particles_total = 0.1
-volume_fraction_of_particles_totals = [0.1]
-
+volume_fraction_of_particles_total = 0.001
 
 #  color settings    
 matrix_color = 0
-particle_containing_color = 1
-particle_color = 3
-indenter_color = 4
+particle_color = 10
 crack_color = 6
 
 ################### DATA #####################
@@ -181,132 +174,116 @@ volume_percents_particles = np.array([ 0.  ,  0.  ,  0.  ,  0.  ,  0.  ,  0.  , 
 ##################  Calculations  ###############
 
 radii = []
+radii = diameters / 2
 
-summary_total = []
+volume_of_particles_total = volume_total*volume_fraction_of_particles_total
 
-for volume_fraction_of_particles_total in volume_fraction_of_particles_totals:
-    
-    radii = []
-    radii = diameters / 2
+# calc how much volume belongs to each particle radius from the distribution
+volume_of_each_particle_radius = volume_of_particles_total * (volume_percents_particles/100)
 
-    volume_of_particles_total = volume_total*volume_fraction_of_particles_total
-    
-    # calc how much volume belongs to each particle radius from the distribution
-    volume_of_each_particle_radius = volume_of_particles_total * (volume_percents_particles/100)
-    
-    # calc how many spheres of each radius are needed to fill the volume reserved for each particle radius
-    number_of_particles = volume_of_each_particle_radius / ((4/3)*(np.pi * (radii**3)))
-    
-    # round the particle radii for further processing
-    
-    radii = np.round(radii,decimals=0)
-    
-    # fill an array with each radius times its frequency
-    
-    radii_list = []
-    for i,r in enumerate(radii):
-        for j in range(int(np.round(number_of_particles[i]))):
-            radii_list.append(r)
+# calc how many spheres of each radius are needed to fill the volume reserved for each particle radius
+number_of_particles = volume_of_each_particle_radius / ((4/3)*(np.pi * (radii**3)))
+
+# round the particle radii for further processing
+
+radii = np.round(radii,decimals=0)
+
+# fill an array with each radius times its frequency
+
+radii_list = []
+for i,r in enumerate(radii):
+    for j in range(int(np.round(number_of_particles[i]))):
+        radii_list.append(r)
+        
+radii_final = np.array(radii_list)
+
+##################  Volume #######################
+
+matrix_vol = np.zeros((a,b,c))    
+
+## place the big ones first, then the small ones this will save a lot of time and money
+ 
+radii_sorted = np.sort(radii_final)[::-1]
+ 
+for i,radius in enumerate(radii_sorted):  
+
+        flag = 0
+        counter = 0
+        while flag == 0:
+            # generate random sphere center coordinates cx,cy,cz
+            cx = np.random.choice(a_vol)
+            cy = np.random.choice(b_vol)
+            cz = np.random.choice(c_vol)
+            # generate bounding box around the center coordinate
+            # cx+radius is in, cx+radius+1 is out
+            cxs_bb = np.arange(cx-radius,cx+radius+1)
+            cys_bb = np.arange(cy-radius,cy+radius+1)
+            czs_bb = np.arange(cz-radius,cz+radius+1)
             
-    radii_final = np.array(radii_list)
-    
-    ##################  Volume #######################
-    
-    matrix_vol = np.zeros((a,b,c))    
-    
-    ## place the big ones first, then the small ones this will save a lot of time and money
-     
-    radii_sorted = np.sort(radii_final)[::-1]
-     
-    for i,radius in enumerate(radii_sorted):  
-    
-            flag = 0
-            counter = 0
-            while flag == 0:
-                # generate random sphere center coordinates cx,cy,cz
-                cx = np.random.choice(a_vol)
-                cy = np.random.choice(b_vol)
-                cz = np.random.choice(c_vol)
-                # generate bounding box around the center coordinate
-                # cx+radius is in, cx+radius+1 is out
-                cxs_bb = np.arange(cx-radius,cx+radius+1)
-                cys_bb = np.arange(cy-radius,cy+radius+1)
-                czs_bb = np.arange(cz-radius,cz+radius+1)
-                
-                # generate a sphere in the bounding box             
-                in_sphere_arr = make_sphere(cx,cy,cz,radius,cxs_bb,cys_bb,czs_bb)
-                # project the local coordinates of the sphere in the global volume to check for overlap
-                xs, ys, zs = calc_global_overlap_coords(in_sphere_arr, cx, cy, cz, radius)  
-    
-                # introduce infinite boundary conditions
-                xs_corr = correct_boundaries(a,xs).astype(int)
-                ys_corr = correct_boundaries(b,ys).astype(int)
-                zs_corr = correct_boundaries(c,zs).astype(int)
-    
-                overlap = check_overlap(matrix_vol[xs_corr,ys_corr, zs_corr],matrix_color)
-                
-                counter += 1
-                 
-                if overlap == False:
-                    matrix_vol[xs_corr,ys_corr,zs_corr] = particle_color
-                    flag = 1
-                    
-                
-    ############## SLice ##############################
-    number_of_slices = 15
-    slices = np.linspace(10,b-10,number_of_slices,dtype=int)             
-    
-    summary_crack = []
-                
-    for s in slices:
-                    
-        matrix_area = matrix_vol[:,s,:]
-        
-        
-        matrix_area_binary_opened = ndimage.binary_opening(matrix_area).astype(matrix_area.dtype)
-    
-    ########### Indent #################################
-        
-        center_indent_x = int(a/2)
-        center_indent_y = int(b/2)    
-        
-        d1 = 50
-        d2 = 50
-        
-        crack_width = 3
-        crack_length = 300
-        
-        labeled_matrix = measure.label(matrix_area_binary_opened)
-        
-        #1st rectangle
-        rect_xs1, rect_ys1 = calc_rectangle_coords(center_indent_x, center_indent_y,crack_width,crack_length, angle=0)
-        
-        particle_content1 = []
-        particle_content1 = check_for_particles_in_crack(labeled_matrix, rect_xs1, rect_ys1)
-        
-        matrix_area_binary_opened = draw_rectangle(matrix_area_binary_opened, rect_xs1, rect_ys1, crack_color)
-        
-        solid_particles1 = np.sum(np.array(particle_content1)) / (rect_xs1.size * rect_ys1.size)
-        
-        #2nd rectangle
-        
-        rect_xs2, rect_ys2 = calc_rectangle_coords(center_indent_x, center_indent_y,crack_width,crack_length, angle=90)
-        
-        particle_content2 = []
-        particle_content2 = check_for_particles_in_crack(labeled_matrix, rect_xs2, rect_ys2)
-        
-        matrix_area_binary_opened = draw_rectangle(matrix_area_binary_opened, rect_xs2, rect_ys2, crack_color)
-        
-        solid_particles2 = np.sum(np.array(particle_content2)) / (rect_xs2.size * rect_ys2.size)
+            # generate a sphere in the bounding box             
+            in_sphere_arr = make_sphere(cx,cy,cz,radius,cxs_bb,cys_bb,czs_bb)
+            # project the local coordinates of the sphere in the global volume to check for overlap
+            xs, ys, zs = calc_global_overlap_coords(in_sphere_arr, cx, cy, cz, radius)  
 
-        
-        
-        
-        summary_crack.append(np.mean(np.array([solid_particles1, solid_particles2])))
-        
-    summary_total.append(summary_crack)
-    
+            # introduce infinite boundary conditions
+            xs_corr = correct_boundaries(a,xs).astype(int)
+            ys_corr = correct_boundaries(b,ys).astype(int)
+            zs_corr = correct_boundaries(c,zs).astype(int)
 
+            overlap = check_overlap(matrix_vol[xs_corr,ys_corr, zs_corr],matrix_color)
+            
+            counter += 1
+             
+            if overlap == False:
+                matrix_vol[xs_corr,ys_corr,zs_corr] = particle_color
+                flag = 1
+            
+############## SLice ##############################
+number_of_slices = 15
+slices = np.linspace(10,b-10,number_of_slices,dtype=int)             
+
+summary_crack = []
+            
+for s in slices:
+                
+    matrix_area = matrix_vol[:,s,:]
+    
+    matrix_area_binary_opened = ndimage.binary_opening(matrix_area).astype(matrix_area.dtype)
+
+########### Indent #################################
+    
+    center_indent_x = int(a/2)
+    center_indent_y = int(b/2)    
+    
+    d1 = 50
+    d2 = 50
+    
+    crack_width = 3
+    crack_length = 300
+    
+    labeled_matrix = measure.label(matrix_area_binary_opened)
+    
+    #1st rectangle
+    rect_xs1, rect_ys1 = calc_rectangle_coords(center_indent_x, center_indent_y,crack_width,crack_length, angle=0)
+    
+    particle_content1 = []
+    
+    matrix_area_binary_opened = draw_rectangle(matrix_area_binary_opened, rect_xs1, rect_ys1, crack_color)
+    particle_content1 = check_for_particles_in_crack(matrix_area_binary_opened, labeled_matrix, rect_xs1, rect_ys1)
+    solid_particles1 = np.sum(np.array(particle_content1)) / (rect_xs1.size * rect_ys1.size)
+    
+    #2nd rectangle    
+    rect_xs2, rect_ys2 = calc_rectangle_coords(center_indent_x, center_indent_y,crack_width,crack_length, angle=90)
+    
+    particle_content2 = []
+    
+    matrix_area_binary_opened = draw_rectangle(matrix_area_binary_opened, rect_xs2, rect_ys2, crack_color)
+    particle_content2 = check_for_particles_in_crack(matrix_area_binary_opened, labeled_matrix, rect_xs2, rect_ys2)        
+    solid_particles2 = np.sum(np.array(particle_content2)) / (rect_xs2.size * rect_ys2.size)
+    
+    
+    summary_crack.append(np.mean(np.array([solid_particles1, solid_particles2])))
+    
 ########### Plot #################################
 
 #means = []
@@ -347,11 +324,6 @@ print("--- %s seconds ---" % (time.time() - start_time))
 fig = pl.figure()
 ax = fig.add_subplot(111)
 ax.imshow(matrix_area_binary_opened, cmap='gray')   
-indent = patches.Rectangle((a/2 , -d2/2),d1,d2, color='white', alpha=0.3, edgecolor='red') 
-#transform = matplotlib.transforms.Affine2D().rotate_deg(45) + ax.transData
-#indent.set_transform(transform)
-#ax.add_patch(indent)
-
 
 ################ Test ##########################
 
